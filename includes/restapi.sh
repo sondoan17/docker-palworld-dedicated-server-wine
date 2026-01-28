@@ -24,13 +24,24 @@ api_request() {
     if [[ $# -ge 3 ]]; then
         # Body provided (can be empty string for POST without payload)
         local body="$3"
-        http_code=$(curl -s -X "$method" \
-            -u "$auth" \
-            -H "Content-Type: application/json" \
-            -d "$body" \
-            -w "%{http_code}" \
-            -o "$temp_file" \
-            "$url")
+        if [[ -z "$body" ]]; then
+            # Empty body - explicitly set Content-Length: 0
+            http_code=$(curl -s -X "$method" \
+                -u "$auth" \
+                -H "Content-Type: application/json" \
+                -H "Content-Length: 0" \
+                -w "%{http_code}" \
+                -o "$temp_file" \
+                "$url")
+        else
+            http_code=$(curl -s -X "$method" \
+                -u "$auth" \
+                -H "Content-Type: application/json" \
+                -d "$body" \
+                -w "%{http_code}" \
+                -o "$temp_file" \
+                "$url")
+        fi
     else
         # No body (GET requests)
         http_code=$(curl -s -X "$method" \
