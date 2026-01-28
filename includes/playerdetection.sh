@@ -31,7 +31,14 @@ api_showplayers_with_retry() {
         if [[ $exit_code -eq 0 ]] && [[ -n "$response" ]]; then
             # Parse JSON response into current_players array
             # Format: name,playeruid,steamid (for compatibility with existing logic)
-            readarray -t current_players <<< "$(echo "$response" | jq -r '.players[] | "\(.name),\(.playerId),\(.userId)"' 2>/dev/null)"
+            local jq_output
+            jq_output=$(echo "$response" | jq -r '.players[] | "\(.name),\(.playerId),\(.userId)"' 2>/dev/null)
+            if [[ -z "$jq_output" ]]; then
+                # No players - set empty array
+                current_players=()
+            else
+                readarray -t current_players <<< "$jq_output"
+            fi
 
             if [[ -n $PLAYER_DETECTION_DEBUG ]] && [[ "${PLAYER_DETECTION_DEBUG,,}" == "true" ]]; then
                 ew "Debug: current_players = ${current_players[*]}"
