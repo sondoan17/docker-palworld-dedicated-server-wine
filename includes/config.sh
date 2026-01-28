@@ -71,7 +71,7 @@ function setup_palworld_settings_ini() {
         $ENABLE_FAST_TRAVEL $ENABLE_FAST_TRAVEL_ONLY_BASE_CAMP $IS_START_LOCATION_SELECT_BY_MAP $CAN_PICKUP_OTHER_GUILD_DEATH_PENALTY_DROP $SUPPLY_DROP_SPAN $SERVER_REPLICATE_PAWN_CULL_DISTANCE $ALLOW_GLOBAL_PALBOX_EXPORT $ALLOW_GLOBAL_PALBOX_IMPORT $ENABLE_WORLD_BACKUP $AUTO_SAVE_SPAN $LOG_FORMAT_TYPE $BLOCK_RESPAWN_TIME $RESPAWN_PENALTY_DURATION_THRESHOLD $RESPAWN_PENALTY_TIME_SCALE
         $RANDOMIZER_TYPE $RANDOMIZER_SEED $IS_RANDOMIZER_PAL_LEVEL_RANDOM
         $IS_MULTIPLAY $DENY_TECHNOLOGY_LIST'
-    
+
 
     if ! envsubst "$ENVSUBST_SELECTORS" < "${PALWORLD_TEMPLATE_FILE}" > "${GAME_SETTINGS_FILE}"; then
         ee "Failed to generate ${GAME_SETTINGS_FILE}"
@@ -80,39 +80,13 @@ function setup_palworld_settings_ini() {
     es ">>> Finished setting up PalWorldSettings.ini"
 }
 
-function setup_rcon_yaml () {
-    if [[ -n ${RCON_ENABLED+x} ]] && [[ "${RCON_ENABLED,,}" == "true" ]] ; then
-        ei ">>> RCON is enabled - Setting up rcon.yaml ..."
-        if [[ -n ${RCON_PORT+x} ]] && [[ -n ${ADMIN_PASSWORD+x} ]]; then
-            TEMP_FILE=$(mktemp)
-            if envsubst '$RCON_PORT $ADMIN_PASSWORD' < "$RCON_CONFIG_FILE" > "$TEMP_FILE"; then
-                mv "$TEMP_FILE" "$RCON_CONFIG_FILE"
-            else
-                ee "Failed to process rcon.yaml"
-                rm -f "$TEMP_FILE"
-                return 1
-            fi
-        else
-            ee "> RCON_PORT and/or ADMIN_PASSWORD are not set; please set both for RCON to work!"
-        fi
-        es ">>> Finished setting up 'rcon.yaml' config file"
-    else
-        ei ">>> RCON is disabled, skipping 'rcon.yaml' config file!"
-    fi
-}
-
 function setup_configs() {
     if [[ -n ${SERVER_SETTINGS_MODE} ]] && [[ ${SERVER_SETTINGS_MODE} == "auto" ]]; then
         ew ">>> SERVER_SETTINGS_MODE is set to '${SERVER_SETTINGS_MODE}', using environment variables to configure the server"
         setup_engine_ini
         setup_palworld_settings_ini
-        setup_rcon_yaml
-    elif [[ -n ${SERVER_SETTINGS_MODE} ]] && [[ ${SERVER_SETTINGS_MODE} == "rcononly" ]]; then
-        ew ">>> SERVER_SETTINGS_MODE is set to '${SERVER_SETTINGS_MODE}', using environment variables to ONLY configure RCON!"
-        ew ">>> ALL SETTINGS excluding setup of rcon.yaml has to be done manually by the user!"
-        setup_rcon_yaml
     else
         ew ">>> SERVER_SETTINGS_MODE is set to '${SERVER_SETTINGS_MODE}', NOT using environment variables to configure the server!"
-        ew ">>> ALL SETTINGS including setup of rcon.yaml has to be done manually by the user!"
+        ew ">>> ALL SETTINGS has to be done manually by the user!"
     fi
 }

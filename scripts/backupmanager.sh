@@ -2,10 +2,11 @@
 # shellcheck disable=SC1091,SC2012,SC2004
 
 source /includes/colors.sh
+source /includes/restapi.sh
 source /includes/rcon.sh
 
 # Default values if the environment variables exist
-LOCAL_BACKUP_ANNOUNCE_MESSAGES_ENABLED=${BACKUP_ANNOUNCE_MESSAGES_ENABLED} # Defines if messages should be announced via rcon
+LOCAL_BACKUP_ANNOUNCE_MESSAGES_ENABLED=${BACKUP_ANNOUNCE_MESSAGES_ENABLED} # Defines if messages should be announced via REST API
 LOCAL_BACKUP_PATH=${BACKUP_PATH} # Directory where the backup files are stored
 LOCAL_GAME_PATH=${GAME_PATH} # Directory where the game save files are stored
 LOCAL_GAME_SAVE_PATH=${GAME_SAVE_PATH} # Directory where the game save files are stored
@@ -138,15 +139,15 @@ function create_backup() {
     mkdir -p "${LOCAL_BACKUP_PATH}"
 
     if [[ -n $LOCAL_BACKUP_ANNOUNCE_MESSAGES_ENABLED ]] && [[ "${LOCAL_BACKUP_ANNOUNCE_MESSAGES_ENABLED,,}" == "true" ]]; then
-        rconcli broadcast "$(get_time) Saving in 5 seconds..."
+        api_broadcast "Saving in 5 seconds..."
         sleep 5
-        rconcli broadcast "$(get_time) Saving world..."
-        rconcli save
-        rconcli broadcast "$(get_time) Saving done"
+        api_broadcast "Saving world..."
+        api_save
+        api_broadcast "Saving done"
         sleep 15
-        rconcli broadcast "$(get_time) Creating backup..."
+        api_broadcast "Creating backup..."
     else
-        rconcli save
+        api_save
     fi
 
     if ! tar cfz "${LOCAL_BACKUP_PATH}/${backup_file_name}" -C "${LOCAL_GAME_PATH}/" --exclude "backup" "Saved" ; then

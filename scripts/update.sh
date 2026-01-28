@@ -3,6 +3,7 @@
 set -e
 
 source /includes/colors.sh
+source /includes/restapi.sh
 source /includes/server.sh
 source /includes/webhook.sh
 
@@ -56,7 +57,7 @@ function start_update_check() {
   fi
 
   for ((counter=$countdown; counter>=1; counter--)); do
-    if [[ -n $RCON_ENABLED ]] && [[ $RCON_ENABLED == "true" ]]; then
+    if [[ -n $RESTAPI_ENABLED ]] && [[ "${RESTAPI_ENABLED,,}" == "true" ]]; then
       if check_is_server_empty; then
           ew ">>> Server is empty, updating now"
           if [[ -n $WEBHOOK_ENABLED ]] && [[ "${WEBHOOK_ENABLED,,}" == "true" ]]; then
@@ -67,7 +68,7 @@ function start_update_check() {
           ew ">>> Server still has players"
       fi
       if [[ -n $AUTO_UPDATE_ANNOUNCE_MESSAGES_ENABLED ]] && [[ "${AUTO_UPDATE_ANNOUNCE_MESSAGES_ENABLED,,}" == "true" ]]; then
-        rconcli "broadcast $(get_time) AUTOMATIC SERVER UPDATE AND RESTART IN $counter MINUTES"
+        api_broadcast "AUTOMATIC SERVER UPDATE AND RESTART IN $counter MINUTES"
       fi
     fi
     if [[ -n $AUTO_UPDATE_DEBUG_OVERRIDE ]] && [[ "${AUTO_UPDATE_DEBUG_OVERRIDE,,}" == "true" ]]; then
@@ -77,13 +78,13 @@ function start_update_check() {
     fi
   done
 
-  if [[ -n $RCON_ENABLED ]] && [[ $RCON_ENABLED == "true" ]]; then
+  if [[ -n $RESTAPI_ENABLED ]] && [[ "${RESTAPI_ENABLED,,}" == "true" ]]; then
     if [[ -n $RESTART_ANNOUNCE_MESSAGES_ENABLED ]] && [[ "${RESTART_ANNOUNCE_MESSAGES_ENABLED,,}" == "true" ]]; then
-      rconcli "broadcast $(get_time) Saving world before update and restart..."
-      rconcli 'save'
-      rconcli "broadcast $(get_time) Saving done"
+      api_broadcast "Saving world before update and restart..."
+      api_save
+      api_broadcast "Saving done"
     else
-      rconcli 'save'
+      api_save
     fi
     sleep 15
 
@@ -92,8 +93,8 @@ function start_update_check() {
     if [[ -n "${PLAYER_DETECTION_PID}" ]]; then
       kill -SIGTERM "${PLAYER_DETECTION_PID}"
     fi
-    rconcli "Shutdown 10"
-    if [[ -n $WEBHOOK_ENABLED ]] && [[ $WEBHOOK_ENABLED == "true" ]]; then
+    api_shutdown 10 "Server is updating"
+    if [[ -n $WEBHOOK_ENABLED ]] && [[ "${WEBHOOK_ENABLED,,}" == "true" ]]; then
         send_stop_notification
     fi
   else

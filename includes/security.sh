@@ -18,6 +18,43 @@ function check_for_default_credentials() {
 function check_for_deprecated_variables() {
     e "> Checking for deprecated variables..."
     local deprecated_found=false
+
+    # RCON_PLAYER_DETECTION -> PLAYER_DETECTION
+    if [[ -n ${RCON_PLAYER_DETECTION+x} ]]; then
+        ew ">>> WARNING: 'RCON_PLAYER_DETECTION' is deprecated. Use 'PLAYER_DETECTION' instead."
+        deprecated_found=true
+        export PLAYER_DETECTION="${RCON_PLAYER_DETECTION}"
+    fi
+
+    # RCON_PLAYER_DEBUG -> PLAYER_DETECTION_DEBUG
+    if [[ -n ${RCON_PLAYER_DEBUG+x} ]]; then
+        ew ">>> WARNING: 'RCON_PLAYER_DEBUG' is deprecated. Use 'PLAYER_DETECTION_DEBUG' instead."
+        deprecated_found=true
+        export PLAYER_DETECTION_DEBUG="${RCON_PLAYER_DEBUG}"
+    fi
+
+    # RCON_PLAYER_DETECTION_STARTUP_DELAY -> PLAYER_DETECTION_STARTUP_DELAY
+    if [[ -n ${RCON_PLAYER_DETECTION_STARTUP_DELAY+x} ]]; then
+        ew ">>> WARNING: 'RCON_PLAYER_DETECTION_STARTUP_DELAY' is deprecated. Use 'PLAYER_DETECTION_STARTUP_DELAY' instead."
+        deprecated_found=true
+        export PLAYER_DETECTION_STARTUP_DELAY="${RCON_PLAYER_DETECTION_STARTUP_DELAY}"
+    fi
+
+    # RCON_PLAYER_DETECTION_CHECK_INTERVAL -> PLAYER_DETECTION_CHECK_INTERVAL
+    if [[ -n ${RCON_PLAYER_DETECTION_CHECK_INTERVAL+x} ]]; then
+        ew ">>> WARNING: 'RCON_PLAYER_DETECTION_CHECK_INTERVAL' is deprecated. Use 'PLAYER_DETECTION_CHECK_INTERVAL' instead."
+        deprecated_found=true
+        export PLAYER_DETECTION_CHECK_INTERVAL="${RCON_PLAYER_DETECTION_CHECK_INTERVAL}"
+    fi
+
+    # RCON_ENABLED used for player detection -> RESTAPI_ENABLED
+    if [[ -n ${RCON_ENABLED+x} ]] && [[ "${RCON_ENABLED,,}" == "true" ]] && [[ -z ${RESTAPI_ENABLED+x} ]]; then
+        ew ">>> WARNING: RCON is deprecated for server management. Please use RESTAPI_ENABLED=true instead."
+        ew ">>> Auto-enabling REST API for backward compatibility."
+        deprecated_found=true
+        export RESTAPI_ENABLED="true"
+    fi
+
     if [[ -n ${RCON_QUIET_RESTART+x} ]]; then
         ew ">>> WARNING: The environment variable 'RCON_QUIET_RESTART' is deprecated and will be removed in a future version."
         ew ">>> Please use 'RESTART_ANNOUNCE_MESSAGES_ENABLED' instead."

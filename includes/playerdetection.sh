@@ -1,56 +1,47 @@
 # shellcheck disable=SC2148,SC1091
 
 source /includes/colors.sh
-source /includes/rcon.sh
+source /includes/restapi.sh
 source /includes/webhook.sh
 
 current_players=()
 
 player_detection_loop() {
-    sleep "$RCON_PLAYER_DETECTION_STARTUP_DELAY"
+    sleep "$PLAYER_DETECTION_STARTUP_DELAY"
     while true; do
         compare_players
-        sleep "$RCON_PLAYER_DETECTION_CHECK_INTERVAL"
+        sleep "$PLAYER_DETECTION_CHECK_INTERVAL"
     done
 }
 
-rcon_showplayers_with_retry() {
+api_showplayers_with_retry() {
     local amount_of_retries=5
     local wait_in_seconds=3
-    local command_output
+    local response
 
     for ((i=0; i<amount_of_retries; i++)); do
-        command_output=$(rcon showplayers 2> /dev/null)
-        if [[ -n $RCON_PLAYER_DEBUG ]] && [[ "${RCON_PLAYER_DEBUG,,}" == "true" ]]; then
-            ew "Debug: command_output = '$command_output'"
-            ew "Exitcode was: $?"
+        response=$(api_get_players 2>/dev/null)
+        local exit_code=$?
+
+        if [[ -n $PLAYER_DETECTION_DEBUG ]] && [[ "${PLAYER_DETECTION_DEBUG,,}" == "true" ]]; then
+            ew "Debug: response = '$response'"
+            ew "Exitcode was: $exit_code"
         fi
-        if [[ $? -eq 0 ]]; then
-            # Check if the command executed successfully, regardless of content
-            if [[ -n "$command_output" && "$(echo "$command_output" | wc -l)" -gt 1 ]]; then
-                # If there is output, we assume rconcli returned at least a single header line
-                # then we try to process process it into current_players
-                # Example output for empty server is:
-                # root@contaierid:/home/steam/steamcmd# rcon showplayers
-                # name,playeruid,steamid
-                readarray -t current_players <<< "$(echo "$command_output" | tail -n +2)"
-                if [[ -n $RCON_PLAYER_DEBUG ]] && [[ "${RCON_PLAYER_DEBUG,,}" == "true" ]]; then
-                    ew "Debug: current_players = ${current_players[*]}"
-                fi
-            else
-                # If there is no error exit code but data is missing at least 1 line, something is off
-                # therefore we shouldnt set current_players to empty?
-                # current_players=()
-                if [[ -n $RCON_PLAYER_DEBUG ]] && [[ "${RCON_PLAYER_DEBUG,,}" == "true" ]]; then
-                    ew "Debug: No player data available."
-                fi
+
+        if [[ $exit_code -eq 0 ]] && [[ -n "$response" ]]; then
+            # Parse JSON response into current_players array
+            # Format: name,playeruid,steamid (for compatibility with existing logic)
+            readarray -t current_players <<< "$(echo "$response" | jq -r '.players[] | "\(.name),\(.playerId),\(.userId)"' 2>/dev/null)"
+
+            if [[ -n $PLAYER_DETECTION_DEBUG ]] && [[ "${PLAYER_DETECTION_DEBUG,,}" == "true" ]]; then
+                ew "Debug: current_players = ${current_players[*]}"
             fi
             return 0
         fi
         sleep $wait_in_seconds
     done
 
-    ew ">>> RCON command failed after $amount_of_retries attempts."
+    ew ">>> REST API request failed after $amount_of_retries attempts."
     return 1
 }
 
@@ -58,12 +49,12 @@ rcon_showplayers_with_retry() {
 compare_players() {
     local old_players=("${current_players[@]}")
 
-    if ! rcon_showplayers_with_retry; then
-        ew "> Skipping player comparison due to RCON failure."
+    if ! api_showplayers_with_retry; then
+        ew "> Skipping player comparison due to REST API failure."
         return
     fi
 
-    if [[ -n $RCON_PLAYER_DEBUG ]] && [[ "${RCON_PLAYER_DEBUG,,}" == "true" ]]; then
+    if [[ -n $PLAYER_DETECTION_DEBUG ]] && [[ "${PLAYER_DETECTION_DEBUG,,}" == "true" ]]; then
         ew "Debug: current_players = ${current_players[*]}"
     fi
     if [[ ${#current_players[@]} -eq 0 ]]; then
@@ -71,22 +62,12 @@ compare_players() {
         return
     fi
 
-
-    # Do we need a case where current_players is empty?
-    # if [[ ${#current_players[@]} -eq 0 ]]; then
-    #     echo "No players currently on the server."
-    # fi
-
     for player_info in "${current_players[@]}"; do
-        if [[ -n $RCON_PLAYER_DEBUG ]] && [[ "${RCON_PLAYER_DEBUG,,}" == "true" ]]; then
+        if [[ -n $PLAYER_DETECTION_DEBUG ]] && [[ "${PLAYER_DETECTION_DEBUG,,}" == "true" ]]; then
             ew "For-Loop-Debug: player_info = '$player_info'"
         fi
         # Extract player name, UID, and Steam ID from player info
-        # This part sets the Internal Field Separator (IFS) variable to ','.
-        # In Bash, the IFS variable determines how Bash recognizes word boundaries.
-        # By default, it includes space, tab, and newline characters.
-        # By setting it to ',', we're telling Bash to split input lines at commas.
-        # https://tldp.org/LDP/abs/html/internalvariables.html#IFSREF
+        # This part sets the Internal Field Separator (IFS) variable to ','
         IFS=',' read -r -a player_data <<< "$player_info"
 
         # Ensure player_data has the expected number of elements
@@ -158,12 +139,12 @@ announce_join() {
     if [[ -n $WEBHOOK_ENABLED ]] && [[ "${WEBHOOK_ENABLED,,}" == "true" ]]; then
         send_info_notification "$message"
     fi
-    if [[ -n $RCON_ENABLED ]] && [[ "${RCON_ENABLED,,}" == "true" ]]; then
-        broadcast_player_join "${1}"
+    if [[ -n $RESTAPI_ENABLED ]] && [[ "${RESTAPI_ENABLED,,}" == "true" ]]; then
+        api_broadcast "Player $1 has joined"
     fi
 }
 
-# Function to announce a player join
+# Function to announce a player name change
 announce_name_change() {
     time=$(date '+[%H:%M:%S]')
     message="Player $1 has changed their name to $2."
@@ -171,9 +152,6 @@ announce_name_change() {
     if [[ -n $WEBHOOK_ENABLED ]] && [[ "${WEBHOOK_ENABLED,,}" == "true" ]]; then
         send_info_notification "$message"
     fi
-    # if [[ -n $RCON_ENABLED ]] && [[ "${RCON_ENABLED,,}" == "true" ]]; then
-    #     broadcast_player_name_change "${1}" "${2}"
-    # fi
 }
 
 # Function to announce a player leave
@@ -184,7 +162,4 @@ announce_leave() {
     if [[ -n $WEBHOOK_ENABLED ]] && [[ "${WEBHOOK_ENABLED,,}" == "true" ]]; then
         send_info_notification "$message"
     fi
-#     if [[ -n $RCON_ENABLED ]] && [[ "${RCON_ENABLED,,}" == "true" ]]; then
-#         broadcast_player_leave "${1}"
-#     fi
 }

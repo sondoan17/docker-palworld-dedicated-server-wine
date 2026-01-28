@@ -1,21 +1,3 @@
-FROM golang:1.22.0-bookworm AS rconclibuilder
-
-WORKDIR /build
-
-ENV CGO_ENABLED=0 \
-    GORCON_RCONCLI_URL=https://github.com/gorcon/rcon-cli/archive/refs/tags/v0.10.3.tar.gz \
-    GORCON_RCONCLI_DIR=rcon-cli-0.10.3 \
-    GORCON_RCONCLI_TGZ=v0.10.3.tar.gz \
-    GORCON_RCONCLI_TGZ_SHA1SUM=33ee8077e66bea6ee097db4d9c923b5ed390d583
-
-RUN curl -fsSLO "$GORCON_RCONCLI_URL" \
-    && echo "${GORCON_RCONCLI_TGZ_SHA1SUM}  ${GORCON_RCONCLI_TGZ}" | sha1sum -c - \
-    && tar -xzf "$GORCON_RCONCLI_TGZ" \
-    && mv "$GORCON_RCONCLI_DIR"/* ./ \
-    && rm "$GORCON_RCONCLI_TGZ" \
-    && rm -Rf "$GORCON_RCONCLI_DIR" \
-    && go build -v ./cmd/gorcon
-
 FROM debian:bookworm-slim AS supercronicverify
 
 # Latest releases available at https://github.com/aptible/supercronic/releases
@@ -56,7 +38,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     GAME_SETTINGS_FILE="/palworld/Pal/Saved/Config/WindowsServer/PalWorldSettings.ini" \
     GAME_ENGINE_FILE="/palworld/Pal/Saved/Config/WindowsServer/Engine.ini" \
     STEAMCMD_PATH="/home/steam/steamcmd" \
-    RCON_CONFIG_FILE="/home/steam/steamcmd/rcon.yaml" \
     PALWORLD_TEMPLATE_FILE="/PalWorldSettings.ini.template" \
     BACKUP_PATH="/palworld/backups" \
     # Container-setttings
@@ -92,11 +73,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
     AUTO_UPDATE_ANNOUNCE_MESSAGES_ENABLED=true \
     AUTO_UPDATE_CRON_EXPRESSION="0 * * * *" \
     AUTO_UPDATE_DEBUG_OVERRIDE=false \
-    # RCON-Playerdetection - NEEDS RCON ENABLED!
-    RCON_PLAYER_DETECTION=true \
-    RCON_PLAYER_DEBUG=false \
-    RCON_PLAYER_DETECTION_STARTUP_DELAY=60 \
-    RCON_PLAYER_DETECTION_CHECK_INTERVAL=15 \
+    # Player detection - NEEDS RESTAPI_ENABLED!
+    PLAYER_DETECTION=true \
+    PLAYER_DETECTION_DEBUG=false \
+    PLAYER_DETECTION_STARTUP_DELAY=60 \
+    PLAYER_DETECTION_CHECK_INTERVAL=15 \
     # Webhook-settings
     WEBHOOK_ENABLED=false \
     WEBHOOK_DEBUG_ENABLED=false \
@@ -141,7 +122,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     MAX_PLAYERS=32 \
     COOP_PLAYER_MAX_NUM=4 \
     ALLOW_CLIENT_MOD=true \
-    RCON_ENABLED=true \
+    RCON_ENABLED=false \
     RCON_PORT=25575 \
     RESTAPI_ENABLED=true \
     RESTAPI_PORT=8212 \
@@ -248,14 +229,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
     # PalWorldSettings.ini - Other
     IS_MULTIPLAY=false \
     DENY_TECHNOLOGY_LIST=""
-    
+
 EXPOSE 8211/udp
 EXPOSE 8212/tcp
-EXPOSE 25575/tcp
 EXPOSE 27015/tcp
 
 # Install minimum required packages for dedicated server
-COPY --from=rconclibuilder /build/gorcon /usr/local/bin/rcon
 COPY --from=supercronicverify /usr/local/bin/supercronic /usr/local/bin/supercronic
 
 RUN apt-get update \
@@ -299,7 +278,7 @@ ENV STEAMCMD_URL="http://media.steampowered.com/installer/steamcmd.zip"
 RUN mkdir -p ${STEAMCMD_PATH}
 RUN curl -fsSLO "$STEAMCMD_URL" && \
     unzip steamcmd.zip -d ${STEAMCMD_PATH} && \
-    rm -rf steamcmd.zip 
+    rm -rf steamcmd.zip
 
 # Clean apt
 RUN apt-get autoremove -y --purge \
@@ -313,12 +292,12 @@ RUN apt-get autoremove -y --purge \
 COPY --chmod=755 entrypoint.sh /
 COPY --chmod=755 scripts/ /scripts
 COPY --chmod=755 includes/ /includes
-COPY --chmod=644 configs/rcon.yaml /home/steam/steamcmd/rcon.yaml
 COPY --chmod=644 configs/PalWorldSettings.ini.template /
 COPY --chmod=755 gosu-amd64 /usr/local/bin/gosu
 
 RUN mkdir -p "$BACKUP_PATH" \
     && ln -s /scripts/backupmanager.sh /usr/local/bin/backup \
+    && ln -s /scripts/restapicli.sh /usr/local/bin/restapicli \
     && ln -s /scripts/rconcli.sh /usr/local/bin/rconcli \
     && ln -s /scripts/restart.sh /usr/local/bin/restart \
     && ln -s /scripts/update.sh /usr/local/bin/update \
@@ -327,7 +306,7 @@ RUN mkdir -p "$BACKUP_PATH" \
 
 VOLUME ["${GAME_ROOT}"]
 
-HEALTHCHECK --interval=10s --timeout=10s --start-period=30s --retries=3 \ 
+HEALTHCHECK --interval=10s --timeout=10s --start-period=30s --retries=3 \
     CMD pgrep -f "PalServer-Win64" >/dev/null 2>&1 || exit 1
 
 ENTRYPOINT  ["/entrypoint.sh"]

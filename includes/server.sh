@@ -1,7 +1,7 @@
 # shellcheck disable=SC2148,SC1091
 
 source /includes/colors.sh
-source /includes/rcon.sh
+source /includes/restapi.sh
 source /includes/webhook.sh
 
 wine_game_root=`winepath -w ${GAME_ROOT}`
@@ -54,10 +54,11 @@ function stop_server() {
     if ! pgrep -f "${server_executable}" > /dev/null; then
         ew ">>> Server process not found."
     else
-        # Stage 1: RCON
-        if [[ -n $RCON_ENABLED ]] && [[ "${RCON_ENABLED,,}" == "true" ]]; then
-            ew ">>> Attempting graceful shutdown via RCON..."
-            save_and_shutdown_server
+        # Stage 1: REST API graceful shutdown
+        if [[ -n $RESTAPI_ENABLED ]] && [[ "${RESTAPI_ENABLED,,}" == "true" ]]; then
+            ew ">>> Attempting graceful shutdown via REST API..."
+            api_save
+            api_shutdown 10 "Server is shutting down"
             ew ">>> Waiting up to 20 seconds for server to shut down..."
             for i in {1..20}; do
                 if ! pgrep -f "${server_executable}" > /dev/null; then
@@ -70,7 +71,7 @@ function stop_server() {
 
     # Stage 2: wine taskkill (graceful)
     if pgrep -f "${server_executable}" > /dev/null; then
-        ew ">>> RCON shutdown timed out or was skipped. Attempting shutdown via wine taskkill..."
+        ew ">>> REST API shutdown timed out or was skipped. Attempting shutdown via wine taskkill..."
         wine taskkill /im "${server_executable}" >/dev/null 2>&1
         ew ">>> Waiting up to 10 seconds for server to shut down..."
         for i in {1..10}; do

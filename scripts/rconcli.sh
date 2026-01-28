@@ -1,28 +1,36 @@
 #!/bin/bash
 # shellcheck disable=SC2148,SC1091
-# Sources: https://pubs.opengroup.org/onlinepubs/009604599/utilities/xcu_chap02.html#tag_02_05_02
+# DEPRECATED: This script is a wrapper for backward compatibility.
+# Please use restapicli instead.
 
 source /includes/colors.sh
 
-# Function to run RCON commands
-# Arguments: <command>
-# Example: run_rcon_cli "showplayers"
-run_rcon_cli() {
-    if [[ -z ${RCON_ENABLED+x} ]] || [[ "${RCON_ENABLED,,}" != "true" ]]; then
-        ew ">>> RCON is not enabled. Aborting RCON command ..."
-        exit
-    fi
-    local command=$1
-    shift
-    if [ $# -ge 1 ]; then
-        # In the command value, replace ASCII space characters with
-        # unicode non-breaking space characters.
-        full_command="$command $(echo "$@" | tr ' ' '\240')"
-    else
-        full_command=$command
-    fi
-    output=$(rcon -c "$RCON_CONFIG_FILE" "$full_command" | tr -d '\0')
-    ei_nn "> RCON: "; e "${output}"
-}
+ew ">>> Warning: rconcli is deprecated. Please use 'restapicli' instead."
+ew ">>> RCON has been replaced with REST API."
 
-run_rcon_cli "$@"
+# Map old RCON commands to new REST API commands
+command="$1"
+shift
+
+case "$command" in
+    showplayers)
+        exec /scripts/restapicli.sh players "$@"
+        ;;
+    info)
+        exec /scripts/restapicli.sh info "$@"
+        ;;
+    save)
+        exec /scripts/restapicli.sh save "$@"
+        ;;
+    broadcast)
+        exec /scripts/restapicli.sh broadcast "$@"
+        ;;
+    Shutdown|shutdown)
+        # Old format: Shutdown <seconds>
+        exec /scripts/restapicli.sh shutdown "$@"
+        ;;
+    *)
+        # Try to pass through to REST API CLI
+        exec /scripts/restapicli.sh "$command" "$@"
+        ;;
+esac
