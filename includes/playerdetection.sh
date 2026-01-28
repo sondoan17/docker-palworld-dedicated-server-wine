@@ -85,7 +85,11 @@ compare_players() {
 
         local found=false
         for old_player_info in "${old_players[@]}"; do
+            # Skip empty entries
+            [[ -z "$old_player_info" ]] && continue
             IFS=',' read -r -a old_player_data <<< "$old_player_info"
+            # Ensure old_player_data has expected elements
+            [[ ${#old_player_data[@]} -lt 3 ]] && continue
             local old_steamid="${old_player_data[-1]}"
             local old_playeruid="${old_player_data[-2]}"
             local old_name="${old_player_data[*]::${#old_player_data[@]}-2}"
@@ -107,7 +111,11 @@ compare_players() {
     done
 
     for old_player_info in "${old_players[@]}"; do
+        # Skip empty entries
+        [[ -z "$old_player_info" ]] && continue
         IFS=',' read -r -a old_player_data <<< "$old_player_info"
+        # Ensure old_player_data has expected elements
+        [[ ${#old_player_data[@]} -lt 3 ]] && continue
         local old_steamid="${old_player_data[-1]}"
         local old_playeruid="${old_player_data[-2]}"
         local old_name="${old_player_data[*]::${#old_player_data[@]}-2}"

@@ -31,7 +31,7 @@ function schedule_restart() {
 
     for ((counter=$countdown; counter>=1; counter--)); do
         if [[ -n $RESTAPI_ENABLED ]] && [[ "${RESTAPI_ENABLED,,}" == "true" ]]; then
-            if check_is_server_empty; then
+            if api_is_server_empty; then
                 ew ">>> Server is empty, restarting now"
                 if [[ -n $WEBHOOK_ENABLED ]] && [[ "${WEBHOOK_ENABLED,,}" == "true" ]]; then
                     send_restart_now_notification

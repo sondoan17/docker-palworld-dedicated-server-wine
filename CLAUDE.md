@@ -68,13 +68,26 @@ docker exec palworld-wine-server update
 docker exec palworld-wine-server restart
 ```
 
+## Ports
+
+- `8211/udp` - Game server
+- `8212/tcp` - REST API
+- `27015/tcp` - Steam query (optional)
+
 ## Architecture
 
 ### Container Flow
-1. `entrypoint.sh` - Initializes user permissions (PUID/PGID), starts Xvfb virtual display, runs CMD as steam user via gosu
+1. `entrypoint.sh` - Initializes user permissions (PUID/PGID), starts Xvfb virtual display (`:99`), runs CMD as steam user via gosu
 2. `scripts/servermanager.sh` - Main process loop, handles SIGTERM, coordinates server lifecycle and player detection
 3. `includes/server.sh` - Server start/stop/update functions, Wine/SteamCMD integration
 4. `includes/config.sh` - Config file generation (PalWorldSettings.ini, Engine.ini) from environment variables
+
+### Graceful Shutdown (4-stage)
+The server uses a 4-stage shutdown process in `includes/server.sh`:
+1. REST API shutdown command (20s timeout)
+2. Wine taskkill (10s timeout)
+3. SIGTERM (10s timeout)
+4. SIGKILL (force)
 
 ### REST API Integration
 - `includes/restapi.sh` - REST API client library with functions for all endpoints
@@ -90,6 +103,16 @@ docker exec palworld-wine-server restart
 - `/includes/` - Bash function libraries
 - `/scripts/` - CLI tools and management scripts
 
+### Include Modules
+- `colors.sh` - Colorized logging functions (`e()`, `ei()`, `ew()`, `ee()`, `es()`)
+- `config.sh` - Config file generation with envsubst, supports `###RANDOM###` token
+- `server.sh` - Server lifecycle management
+- `restapi.sh` - REST API client library
+- `playerdetection.sh` - Background player join/leave monitoring
+- `webhook.sh` - Discord-compatible webhook notifications
+- `security.sh` - Credential validation, deprecated variable mapping
+- `cron.sh` - Supercronic cron job setup
+
 ### Configuration Modes (SERVER_SETTINGS_MODE)
 - `auto` - All settings via environment variables (default)
 - `manual` - All settings via direct file editing
@@ -104,6 +127,11 @@ Managed by Supercronic. Setup in `includes/cron.sh`:
 - `WINEPREFIX=/home/steam/.wine`
 - `WINEARCH=win64`
 - Winetricks installs vcrun2022 on first start if `WINETRICK_ON_START=true`
+
+### Steam Integration
+- App ID: `2394010` (Palworld Dedicated Server)
+- Manifest file: `/palworld/steamapps/appmanifest_2394010.acf`
+- Update checks compare local manifest against Steam API
 
 ## Environment Variables
 

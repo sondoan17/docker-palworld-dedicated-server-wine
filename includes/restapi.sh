@@ -9,10 +9,10 @@ RESTAPI_BASE_URL="${RESTAPI_BASE_URL:-http://localhost:${RESTAPI_PORT:-8212}/v1/
 # Arguments: <method> <endpoint> [json_body]
 # Returns: Response body on success, empty on failure
 # Exit code: 0 on success (2xx), 1 on failure
+# Note: Pass empty string "" for POST requests that need Content-Length but no body
 api_request() {
     local method="$1"
     local endpoint="$2"
-    local body="${3:-}"
     local url="${RESTAPI_BASE_URL}${endpoint}"
     local auth="admin:${ADMIN_PASSWORD}"
     local response
@@ -21,7 +21,9 @@ api_request() {
 
     temp_file=$(mktemp)
 
-    if [[ -n "$body" ]]; then
+    if [[ $# -ge 3 ]]; then
+        # Body provided (can be empty string for POST without payload)
+        local body="$3"
         http_code=$(curl -s -X "$method" \
             -u "$auth" \
             -H "Content-Type: application/json" \
@@ -30,6 +32,7 @@ api_request() {
             -o "$temp_file" \
             "$url")
     else
+        # No body (GET requests)
         http_code=$(curl -s -X "$method" \
             -u "$auth" \
             -H "Accept: application/json" \
@@ -88,7 +91,7 @@ api_announce() {
 
 # POST /save - Save the world
 api_save() {
-    api_request "POST" "/save"
+    api_request "POST" "/save" ""
 }
 
 # POST /shutdown - Graceful shutdown with countdown
@@ -108,7 +111,7 @@ api_shutdown() {
 
 # POST /stop - Force stop the server immediately
 api_stop() {
-    api_request "POST" "/stop"
+    api_request "POST" "/stop" ""
 }
 
 # POST /kick - Kick a player
